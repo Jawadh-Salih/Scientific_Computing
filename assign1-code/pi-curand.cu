@@ -54,16 +54,15 @@ BLOCKS, THREADS);
 	start = clock();
 
 	cudaMalloc((void **) &dev, BLOCKS * THREADS * sizeof(float)); // allocate device mem. for counts
-	
+
 	cudaMalloc( (void **)&devStates, THREADS * BLOCKS * sizeof(curandState) );
 
 	gpu_monte_carlo<<<BLOCKS, THREADS>>>(dev, devStates);
 
-	cudaMemcpy(host, dev, BLOCKS * THREADS * sizeof(float), cudaMemcpyDeviceToHost); // return results 
+	cudaMemcpy(host, dev, BLOCKS * THREADS * sizeof(float), cudaMemcpyDeviceToHost); // return results
 
-	float pi_gpu =0;
+	float pi_gpu;
 	for(int i = 0; i < BLOCKS * THREADS; i++) {
-//		printf("PI_GPU VALUE %f \n",pi_gpu);
 		pi_gpu += host[i];
 	}
 
@@ -80,7 +79,6 @@ BLOCKS, THREADS);
 
 	printf("CUDA estimate of PI = %f [error of %f]\n", pi_gpu, pi_gpu - PI);
 	printf("CPU estimate of PI = %f [error of %f]\n", pi_cpu, pi_cpu - PI);
-	
+
 	return 0;
 }
-

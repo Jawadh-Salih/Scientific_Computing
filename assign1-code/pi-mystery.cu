@@ -46,7 +46,7 @@ int main(void) {
 	printf("PI = %f\n",pi);
 
 	// Cleanup
-	free(sumHost); 
+	free(sumHost);
 	cudaFree(sumDev);
 
 	return 0;

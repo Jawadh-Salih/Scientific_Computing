@@ -11,6 +11,11 @@
 #define NUM_THREAD  8  // Number of threads per block
 #define PI 3.1415926535
 
+#Ifdef DOUBLE_PRECISION
+	
+#else
+
+#endif
 int tid;
 float pi = 0;
 
@@ -18,7 +23,7 @@ float pi = 0;
 __global__
 void cal_pi(float *sum, int nbin, float step, int nthreads, int nblocks) {
 	int i;
-	
+
 	float x;
 	int idx = blockIdx.x*blockDim.x+threadIdx.x;  // Sequential thread index across the blocks
 
@@ -26,7 +31,7 @@ void cal_pi(float *sum, int nbin, float step, int nthreads, int nblocks) {
 		x = (i+0.5)*step;
 		sum[idx] += 4.0/(1.0+x*x);
 	}
-	
+
 }
 
 // Main routine that executes on the host
@@ -49,9 +54,9 @@ int main(void) {
 	cal_pi <<<dimGrid, dimBlock>>> (sumDev, NBIN, step, NUM_THREAD, NUM_BLOCK); // call CUDA kernel
 
 	// Retrieve result from device and store it in host array
-	cudaMemcpy(sumHost, sumDev, size, cudaMemcpyDeviceToHost);	
+	cudaMemcpy(sumHost, sumDev, size, cudaMemcpyDeviceToHost);
 	for(tid=0; tid<NUM_THREAD*NUM_BLOCK; tid++)
-		pi += sumHost[tid];	
+		pi += sumHost[tid];
 	pi *= step;
 
 	stop = clock();

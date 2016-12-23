@@ -8,7 +8,7 @@
 #include <cuda.h>
 #include <math.h>
 #include <time.h>
-
+#include <omp.h>
 #define TRIALS_PER_THREAD 4096
 #define BLOCKS 256
 #define THREADS 256
@@ -26,6 +26,17 @@ __device__ float my_rand(unsigned int *seed) {
   return ((float)x)/m;
 }
 
+float my_rand_host(unsigned int *seed) {
+	unsigned long a = 16807;  // constants for random number generator
+  unsigned long m = 2147483647;   // 2^31 - 1
+	unsigned long x = (unsigned long) *seed;
+
+	x = (a * x)%m;
+
+	*seed = (unsigned int) x;
+
+  return ((float)x)/m;
+}
 __global__ void gpu_monte_carlo(float *estimate) {
 	unsigned int tid = threadIdx.x + blockDim.x * blockIdx.x;
 	int points_in_circle = 0;
@@ -56,7 +67,7 @@ int main (int argc, char *argv[]) {
 	clock_t start, stop;
 	float host[BLOCKS * THREADS];
 	float *dev;
-
+	int threads = 8;
 
 	printf("# of trials per thread = %d, # of blocks = %d, # of threads/block = %d.\n", TRIALS_PER_THREAD,
 BLOCKS, THREADS);
@@ -78,14 +89,50 @@ BLOCKS, THREADS);
 
 	stop = clock();
 
-	printf("GPU pi calculated in %f s.\n", (stop-start)/(float)CLOCKS_PER_SEC);
+	printf("GPU pi calculated in %f s.\n", 1000*(stop-start)/(float)CLOCKS_PER_SEC);
 
 	start = clock();
 	float pi_cpu = host_monte_carlo(BLOCKS * THREADS * TRIALS_PER_THREAD);
 	stop = clock();
-	printf("CPU pi calculated in %f s.\n", (stop-start)/(float)CLOCKS_PER_SEC);
+	printf("CPU pi calculated in %f s.\n", 1000*(stop-start)/(float)CLOCKS_PER_SEC);
+
+	// PI calculated from CPU parallel computation
+	start = clock();
+
+	omp_set_dynamic(0);
+	omp_set_num_threads(threads);
+	float points_in_circle[threads];//= 0.0;
+	long long trials = TRIALS_PER_THREAD*THREADS*BLOCKS;
+	float x = 0.0,y = 0.0;
+
+	#pragma omp parallel
+	{
+		int tid = omp_get_thread_num();
+		unsigned int seed = tid+1;
+		int thre = threads;//omp_get_num_threads();
+		long	istart = (tid * trials)/thre;
+		long 	iend = ((tid+1)* trials)/thre;
+		points_in_circle[tid] = 0.0;
+		for(long long i = istart; i <iend; i++) {
+			x = my_rand_host(&seed);
+			y = my_rand_host(&seed);
+			points_in_circle[tid] += (x*x + y*y <= 1.0f);
+		}
+		printf("%d\n",tid );
+	}
+	float circle_points =0.0;
+	for(int k=0;k<threads;k++){
+		circle_points += points_in_circle[k];
+	}
+	float pi_cpu_par = 4.0*circle_points/trials;
+	stop = clock();
+
+	printf("CPU parallel pi calculated in %f ms.\n",1000* (stop-start)/(float)CLOCKS_PER_SEC);
+
+	printf("\n");
 	printf("CUDA estimate of PI = %f [error of %f]\n", pi_gpu, pi_gpu - PI);
 	printf("CPU estimate of PI = %f [error of %f]\n", pi_cpu, pi_cpu - PI);
+	printf("CPU parallel estimate of PI = %f [error of %f]\n", pi_cpu_par, pi_cpu_par - PI);
 
 	return 0;
 }

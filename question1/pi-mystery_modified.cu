@@ -6,13 +6,13 @@
 #include <cuda.h>
 #include <time.h>
 
-#define NBIN 1118481  // Number of bins
+#define NBIN 268435456	  // Number of bins
 #define NUM_BLOCK  30  // Number of thread blocks
 #define NUM_THREAD  8  // Number of threads per block
 #define PI 3.1415926535
 
 #Ifdef DOUBLE_PRECISION
-	
+
 #else
 
 #endif

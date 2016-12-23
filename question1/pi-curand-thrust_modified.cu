@@ -7,7 +7,7 @@
 
 #include <iostream>
 #include <iomanip>
-#include <time.h>
+
 #define PI 3.1415926535  // known value of pi
 
 // we could vary M & N to find the perf sweet spot
@@ -15,6 +15,7 @@
 struct estimate_pi :
     public thrust::unary_function<unsigned int, float>
 {
+
   __device__
   float operator()(unsigned int thread_id)
   {
@@ -42,7 +43,7 @@ struct estimate_pi :
       if(dist <= 1.0f)
         sum += 1.0f;
     }
-
+    // std::cout << thread_id << std::endl;
     // multiply by 4 to get the area of the whole circle
     sum *= 4.0f;
 
@@ -54,8 +55,10 @@ struct estimate_pi :
 int main(void)
 {
   // use 30K independent seeds
-  int M = 30000;
 
+  int M = 30000;
+  clock_t start,stop;
+  start = clock();
   float estimate = thrust::transform_reduce(
         thrust::counting_iterator<int>(0),
         thrust::counting_iterator<int>(M),
@@ -63,9 +66,10 @@ int main(void)
         0.0f,
         thrust::plus<float>());
   estimate /= M;
-
-  std::cout << std::setprecision(4);
-  std::cout << "pi is approximately ";
-  std::cout << estimate << std::endl;
+  stop = clock();
+  double exe_time_cu_thrust = 1000* (stop-start)/(double)CLOCKS_PER_SEC;
+  // std::cout << std::setprecision(4);
+  std::cout << "Estimate of PI =" << estimate <<"[error of " << (estimate-PI) << "]" << std::endl;
+  std::cout << "Estimated value of PI is  calculated in " << exe_time_cu_thrust <<" ms "<< std::endl;
   return 0;
 }

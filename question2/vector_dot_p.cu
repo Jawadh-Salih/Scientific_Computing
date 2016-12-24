@@ -116,25 +116,25 @@ int main(int argc, char * argv[]){
 
       printf("======================================Single Precision==============================\n\n");
       // Serial Computation
-      // start_cpu_serial = clock();
-      // float dot_p_sp = vector_dot_sp(V1sp,V2sp,N[n]);
-      // stop_cpu_serial = clock();
-      //
+      start_cpu_serial = clock();
+      float dot_p_sp = vector_dot_sp(V1sp,V2sp,N[n]);
+      stop_cpu_serial = clock();
+
       // Parallel computation in OMP
-      // float dot_p_parallel_sp = 0.0;
-      // start_cpu_par = clock();
-      // omp_set_dynamic(0);
-      // omp_set_num_threads(thread);
-      // #pragma omp parallel
-      // {
-      //   #pragma omp for schedule(static) reduction(+:dot_p_parallel_sp)
-      //   for (long i = 0; i < N[n]; i++) {
-      //       dot_p_parallel_sp = dot_p_parallel_sp + (V1sp[i] * V2sp[i]);
-      //   }
-      //   // dot_p_parallel_sp = vector_dot_sp(V1sp,V2sp,N);
-      //
-      // }
-      // stop_cpu_par = clock();
+      float dot_p_parallel_sp = 0.0;
+      start_cpu_par = clock();
+      omp_set_dynamic(0);
+      omp_set_num_threads(thread);
+      #pragma omp parallel
+      {
+        #pragma omp for schedule(static) reduction(+:dot_p_parallel_sp)
+        for (long i = 0; i < N[n]; i++) {
+            dot_p_parallel_sp = dot_p_parallel_sp + (V1sp[i] * V2sp[i]);
+        }
+        // dot_p_parallel_sp = vector_dot_sp(V1sp,V2sp,N);
+
+      }
+      stop_cpu_par = clock();
 
       // GPU (CUDA) computation
 
@@ -177,14 +177,14 @@ int main(int argc, char * argv[]){
       cudaFree(dot_p_dev_sp);cudaFree(V1sp_dev);cudaFree(V2sp_dev);
       free(V1sp);free(V2sp);free(dot_p_host_sp)
       stop_gpu_par = clock();
-      //
-      // printf("CPU serial dot product is %f\n",dot_p_sp );
-      // printf("Time taken to execute Serial program : %f ms \n", 1000*(stop_cpu_serial-start_cpu_serial)/(float)CLOCKS_PER_SEC);
-      // printf("\n" );
-      //
-      // printf("CPU parallel dot product is %f\n",dot_p_parallel_sp );
-      // printf("Time taken to execute the program in CPU parallely : %f ms\n",  1000*(stop_cpu_par-start_cpu_par)/(float)CLOCKS_PER_SEC);
-      // printf("\n" );
+
+      printf("CPU serial dot product is %f\n",dot_p_sp );
+      printf("Time taken to execute Serial program : %f ms \n", 1000*(stop_cpu_serial-start_cpu_serial)/(float)CLOCKS_PER_SEC);
+      printf("\n" );
+
+      printf("CPU parallel dot product is %f\n",dot_p_parallel_sp );
+      printf("Time taken to execute the program in CPU parallely : %f ms\n",  1000*(stop_cpu_par-start_cpu_par)/(float)CLOCKS_PER_SEC);
+      printf("\n" );
 
       printf("GPU dot product is %f\n",dot_p_gpu_sp );
       printf("Time taken to execute the program in GPU : %f ms\n", 1000*(stop_gpu_par-start_gpu_par)/(float)CLOCKS_PER_SEC);
@@ -193,27 +193,27 @@ int main(int argc, char * argv[]){
       printf("======================================Double Precision=================================\n\n");
 
       // Serial computation.
-      // start_cpu_serial = clock();
-      // double dot_p_dp = vector_dot_dp(V1dp,V2dp,N[n]);
-      // stop_cpu_serial = clock();
-      //
+      start_cpu_serial = clock();
+      double dot_p_dp = vector_dot_dp(V1dp,V2dp,N[n]);
+      stop_cpu_serial = clock();
+
       // parallel computation in OMP
-      // double dot_p_parallel_dp = 0.0;
-      //
-      // start_cpu_par = clock();
-      // omp_set_dynamic(0);
-      // omp_set_num_threads(thread);
-      // #pragma omp parallel
-      // {
-      //   #pragma omp for schedule(static) reduction(+:dot_p_parallel_dp)
-      //   for (long i = 0; i < N[n]; i++) {
-      //     dot_p_parallel_dp   = dot_p_parallel_dp + (V1dp[i] * V2dp[i]);
-      //   }
-      //   // printf("Num threads %d\n",omp_get_num_threads() );
-      //   // dot_p_parallel_dp = vector_dot_dp(V1dp,V2dp,N);
-      //
-      // }
-      // stop_cpu_par = clock();
+      double dot_p_parallel_dp = 0.0;
+
+      start_cpu_par = clock();
+      omp_set_dynamic(0);
+      omp_set_num_threads(thread);
+      #pragma omp parallel
+      {
+        #pragma omp for schedule(static) reduction(+:dot_p_parallel_dp)
+        for (long i = 0; i < N[n]; i++) {
+          dot_p_parallel_dp   = dot_p_parallel_dp + (V1dp[i] * V2dp[i]);
+        }
+        // printf("Num threads %d\n",omp_get_num_threads() );
+        // dot_p_parallel_dp = vector_dot_dp(V1dp,V2dp,N);
+
+      }
+      stop_cpu_par = clock();
 
       // GPU (CUDA) computation
       double  dot_p_gpu_dp = 0.0;
@@ -242,14 +242,14 @@ int main(int argc, char * argv[]){
 
       stop_gpu_par = clock();
 
-      // printf("CPU serial dot product is %lf\n",dot_p_dp );
-      // printf("Time taken to execute the program in CPU serially : %f ms \n", 1000*(stop_cpu_serial-start_cpu_serial)/(float)CLOCKS_PER_SEC );
-      // printf("\n" );
+      printf("CPU serial dot product is %lf\n",dot_p_dp );
+      printf("Time taken to execute the program in CPU serially : %f ms \n", 1000*(stop_cpu_serial-start_cpu_serial)/(float)CLOCKS_PER_SEC );
+      printf("\n" );
 
-      // printf("CPU parallel dot product is %lf\n",dot_p_parallel_dp );
-      // printf("Time taken to execute Parallel program  : %f ms\n", 1000*(stop_cpu_par-start_cpu_par)/(float)CLOCKS_PER_SEC );
-      // printf("\n" );
-      //
+      printf("CPU parallel dot product is %lf\n",dot_p_parallel_dp );
+      printf("Time taken to execute Parallel program  : %f ms\n", 1000*(stop_cpu_par-start_cpu_par)/(float)CLOCKS_PER_SEC );
+      printf("\n" );
+
       printf("GPU dot product is %lf\n",dot_p_gpu_dp );
       printf("Time taken to execute the program in GPU : %f ms\n", 1000* (stop_gpu_par-start_gpu_par)/(float)CLOCKS_PER_SEC);
       printf("\n" );

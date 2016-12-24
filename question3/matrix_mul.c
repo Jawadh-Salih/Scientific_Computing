@@ -5,6 +5,7 @@
 #include <omp.h>
 // #include <cuda.h>
 // #include <math.h>
+#define TILE_N 10
 
 float ** generate_matrix_sp(float **M, unsigned long N){
   M = (float **)malloc(sizeof(float *)*N);
@@ -93,8 +94,21 @@ double ** matrix_mul_dp(double **V1,double **V2, unsigned long N){
   return C;
 }
 
-__global__ matrix_mul_sp_kernel(float **V1,float **V2,float ** C unsigned long N){
-  
+__global__ matrix_mul_sp_kernel(float *A_dev,float *B_dev,float * C_dev, unsigned long N){
+
+  // to store the element of matrix
+
+  int row = blockIdx.y*blockDim.y+threadIdx.y; // row index for the matrices
+  int col = blockIdx.x*blockDim.x+threadIdx.x; // column index for the matrices
+
+  if ((row < N) && (col <N)){
+    float C_value = 0.0;
+    for(int k=0;k<N;k++){
+        C_value += A_dev[row*N+i]*B_dev[k*N+col];
+        C_dev[row*N+col] = C_value;
+    }
+
+  }
 }
 int main(){
 
@@ -189,17 +203,58 @@ int main(){
   //   }
   //   printf("\n" );
   // }
+
+
   stop = clock();
   // End of CPU parallel Computation
   time_parallel = 1000.0* (stop-start)/(double)CLOCKS_PER_SEC;
 
   //Start of GPU computation.
     //code
+  dim3 dimGrid(N/TILE_N,N/TILE_N,1);
+  dim3 dimBlock(TILE_N,TILE_N,1);
+  float *Csp_host, *Csp_dev;
+  double *Cdp_host, *Cdp_dev;
+  float *Asp_dev,*Bsp_dev; // Single precision
+  double *Adp_dev,*Bdp_dev; // double precision
+  float  dot_p_gpu_sp = 0.0;
+  size_t size_M;
+  float *Asp_tmp = (void **)malloc(size_M),*Bsp_tmp= (void **)malloc(size_M);
+  for(int l = 0;l<N;l++){
+    for(int m=0;m<N;m++){
+      Asp_tmp[l*N+m] = Asp[l][m];
+      Bsp_tmp[l*N+m] = Bsp[l][m];
+    }
+  }
 
+  start = clock();
+  size_M = N*N*sizeof(float);
+  cudaMalloc((void **) &Csp_dev, size_M);  // Allocate array on device
+  cudaMalloc((void **) &Asp_dev, size_M);  // Allocate array on device
+  cudaMalloc((void **) &Bsp_dev, size_M);  // Allocate array on device
+  // Initialize array in device to 0
+  cudaMemset(Csp_dev, 0, size);
+  cudaMemcpy(Asp_dev, Asp_tmp, size_M, cudaMemcpyHostToDevice);
+  cudaMemcpy(Bsp_dev, Bsp_tmp, size_M, cudaMemcpyHostToDevice);
+
+  matrix_mul_sp_kernel<<<dimGrid,dimBlock>>>(Asp_dev,Bsp_dev,Csp_dev,N);
+
+  cudaMemcpy(Csp_host,Csp_dev, size_M, cudaMemcpyDeviceToHost);
+
+  cudaFree(Csp_dev);cudaFree(Asp_dev);cudaFree(Bsp_dev);
+
+  for(long i=0;i<N;i++){
+    for(long j=0;j<N;j++){
+      printf("%lf ",Csp_host[i][j]);
+    }
+    printf("\n" );
+  }
+  stop = clock();
   //End of GPU computation.
-
-  printf("Time taken to execute Serial program : %g ms \n", time_serial );
-  printf("Time taken to execute parallel program : %g ms\n", time_parallel);
+  time_cuda = 1000.0*(stop-start)/(double)CLOCKS_PER_SEC;
+  printf("Time taken to execute CPU Serial program : %g ms \n", time_serial );
+  printf("Time taken to execute CPU Parallel program : %g ms\n", time_parallel);
+  printf("Time taken to execute GPU Parallel program : %g ms\n", time_cuda);
 
   printf("\n\n");
   printf("================================Double Precision========================\n");

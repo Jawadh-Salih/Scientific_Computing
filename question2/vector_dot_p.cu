@@ -7,12 +7,11 @@
 #include <string.h>
 
 #define NUM_BLOCK 10
-#define NUM_THREAD 10
+#define NUM_THREAD 1000
+#define test_cases 3
 
-#define test_cases 1
 
-
-#define THREADS_PER_BLOCK (10) //Threads per block we are using
+#define THREADS_PER_BLOCK (1000) //Threads per block we are using
 
 float *   generate_vector_sp(float *V, unsigned long N){
   V = (float *)malloc(sizeof(float)*N);
@@ -54,12 +53,22 @@ double vector_dot_dp(double *V1,double *V2, unsigned long N){
   return dot_product;
 }
 
-__global__ void vector_dot_sp_gpu(float *V1_d,float *V2_d, float* dot_p_d,unsigned long N, int nthreads, int nblocks) {
-
-  int idx = blockIdx.x*blockDim.x+threadIdx.x;  // Sequential thread index across the blocks
-  for (long i=idx; i< N; i+=nthreads*nblocks) {
-      dot_p_d[idx] += V1_d[i]*V2_d[i];
-  }
+__global__ void vector_dot_sp_gpu(float *V1_d,float *V2_d, float* dot_p_d){//},const unsigned long N, int nthreads, int nblocks) {
+  //
+  // int idx = blockIdx.x*blockDim.x+threadIdx.x;  // Sequential thread index across the blocks
+  // for (long i=idx; i< N; i+=nthreads*nblocks) {
+  //     dot_p_d[idx] += V1_d[i]*V2_d[i];
+  // }
+  __shared__ int temp[THREADS_PER_BLOCK];
+  int index = threadIdx.x + blockIdx.x * blockDim.x;
+  temp[threadIdx.x] = V1_d[index] * V2_d[index];
+  __syncthreads();
+  if( 0 == threadIdx.x ) {
+    float sum = 0;
+    for(int i = 0; i < THREADS_PER_BLOCK; i++ )
+      sum += temp[i];
+    atomicAdd(dot_p_d,sum);
+    }
   //  printf("Dot p for now is : %f\n", V1_d[3]);
 }
 __global__ void vector_dot_dp_gpu(double *V1_d,double *V2_d, double* dot_p_d,unsigned long N, int nthreads, int nblocks) {
@@ -138,7 +147,7 @@ int main(int argc, char * argv[]){
 
       // GPU (CUDA) computation
 
-      // Variable necessary For GPU Computation
+      // // Variable necessary For GPU Computation
       dim3 dimGrid(NUM_BLOCK,1,1);  // Grid dimensions
       dim3 dimBlock(NUM_THREAD,1,1);  // Block dimensions
 
@@ -166,16 +175,16 @@ int main(int argc, char * argv[]){
       cudaMemcpy(V2sp_dev, V2sp, size_V, cudaMemcpyHostToDevice);
 
       // Do calculation on device
-      vector_dot_sp_gpu <<<dimGrid, dimBlock>>> (V1sp_dev,V2sp_dev,dot_p_dev_sp ,N[n], NUM_THREAD, NUM_BLOCK); // call CUDA kernel
+      vector_dot_sp_gpu <<< N[n]/THREADS_PER_BLOCK, THREADS_PER_BLOCK>>> (V1sp_dev,V2sp_dev,dot_p_dev_sp);// ,N[n]);//, NUM_THREAD, NUM_BLOCK); // call CUDA kernel
       // Retrieve result from device and store it in host array
       cudaMemcpy(dot_p_host_sp, dot_p_dev_sp, size, cudaMemcpyDeviceToHost);
 
 
-      for(int tid=0; tid<NUM_THREAD*NUM_BLOCK; tid++)
-        dot_p_gpu_sp += dot_p_host_sp[tid];
+      // for(int tid=0; tid<NUM_THREAD*NUM_BLOCK; tid++)
+        dot_p_gpu_sp = *dot_p_host_sp;//[tid];
 
       cudaFree(dot_p_dev_sp);cudaFree(V1sp_dev);cudaFree(V2sp_dev);
-      free(V1sp);free(V2sp);free(dot_p_host_sp)
+      free(V1sp);free(V2sp);free(dot_p_host_sp);
       stop_gpu_par = clock();
 
       printf("CPU serial dot product is %f\n",dot_p_sp );

@@ -53,21 +53,21 @@ int main(void) {
 	dim3 dimGrid(NUM_BLOCK,1,1);  // Grid dimensions
 	dim3 dimBlock(NUM_THREAD,1,1);  // Block dimensions
 	float *sumHost, *sumDev;  // Pointer to host & device arrays
+	double *sumHost_dp,*sumDev_dp;
 	clock_t start, stop;
 	long N[4] = {1,16777216,67108864,268435456};
 
 	size_t size = NUM_BLOCK*NUM_THREAD*sizeof(float);  //Array memory size
-	for(int i=0;i<4;i++){
-		if(n>0){
+	for(int n=0;n<4;n++){
+			if(n>0){
 			printf("=====================SINGLE PRECISION===============================\n");
 			printf("\n" );
 			printf("\n" );
-			printf("# of Bins = %d, # of blocks = %d, # of threads/block = %d.\n", N[n],NUM_BLOCK, NUM_THREAD);
+			printf("# of Bins = %li, # of blocks = %i, # of threads/block = %d.\n", N[n],NUM_BLOCK, NUM_THREAD);
 			printf("\n" );
 		}
 
 
-	}
 	float step = 1.0/N[n];  // Step size
 	start = clock();
 	sumHost = (float *)malloc(size);  //  Allocate array on host
@@ -88,8 +88,8 @@ int main(void) {
 
 	if(n>0){
 		// Print results
-		printf("PI with the error of  = %f [error %f] \n",pi,pi-PI);
-		printf("GPU pi calculated in %f s.\n", (stop-start)/(float)CLOCKS_PER_SEC);
+		printf("CUDA Estimated PI  = %f [error %f] \n",pi,pi-PI);
+		printf("GPU pi calculated in %f ms.\n", 1000*(stop-start)/(float)CLOCKS_PER_SEC);
 		// Cleanup
 	}
 	free(sumHost);
@@ -98,35 +98,36 @@ int main(void) {
 		printf("=====================DOUBLE PRECISION===============================\n");
 		printf("\n" );
 		printf("\n" );
-		printf("# of Bins = %d, # of blocks = %d, # of threads/block = %d.\n", N[n],NUM_BLOCK, NUM_THREAD);
+		printf("# of Bins = %li, # of blocks = %i, # of threads/block = %d.\n", N[n],NUM_BLOCK, NUM_THREAD);
 		printf("\n" );
 	}
-	double step = 1.0/N[n];  // Step size
+	double step_dp = 1.0/N[n];  // Step size
 	start = clock();
-	sumHost = (double *)malloc(size);  //  Allocate array on host
-	cudaMalloc((void **) &sumDev, size);  // Allocate array on device
+	size = NUM_BLOCK*NUM_THREAD*sizeof(double);
+	sumHost_dp = (double *)malloc(size);  //  Allocate array on host
+	cudaMalloc((void **) &sumDev_dp, size);  // Allocate array on device
 	// Initialize array in device to 0
 	cudaMemset(sumDev, 0, size);
 	// Do calculation on device
 
-	cal_pi_dp <<<dimGrid, dimBlock>>> (sumDev, NBIN, step, NUM_THREAD, NUM_BLOCK); // call CUDA kernel
+	cal_pi_dp <<<dimGrid, dimBlock>>> (sumDev_dp, N[n], step_dp, NUM_THREAD, NUM_BLOCK); // call CUDA kernel
 
 	// Retrieve result from device and store it in host array
-	cudaMemcpy(sumHost, sumDev, size, cudaMemcpyDeviceToHost);
+	cudaMemcpy(sumHost_dp, sumDev_dp, size, cudaMemcpyDeviceToHost);
 	for(tid=0; tid<NUM_THREAD*NUM_BLOCK; tid++)
-		pi += sumHost[tid];
-	pi *= step;
+		pi += sumHost_dp[tid];
+	pi *= step_dp;
 
 	stop = clock();
 
 	if(n>0){
 		// Print results
-		printf("PI with the error of  = %f [error %f] \n",pi,pi-PI);
-		printf("GPU pi calculated in %f s.\n", (stop-start)/(double)CLOCKS_PER_SEC);
+		printf("CUDA Estmated PI =  %f [error %f] \n",pi,pi-PI);
+		printf("GPU pi calculated in %f ms.\n", 1000*(stop-start)/(double)CLOCKS_PER_SEC);
 		// Cleanup
 	}
-	free(sumHost);
-	cudaFree(sumDev);
-
+	free(sumHost_dp);
+	cudaFree(sumDev_dp);
+}
 	return 0;
 }

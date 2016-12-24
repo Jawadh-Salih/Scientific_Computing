@@ -113,7 +113,7 @@ float CPU_parallel(int threads,int N){
 	omp_set_dynamic(0);
 	omp_set_num_threads(threads);
 	float points_in_circle[threads];//= 0.0;
-	long long trials = N[n]*THREADS*BLOCKS;
+	long long trials = N*THREADS*BLOCKS;
 	float x = 0.0,y = 0.0;
 
 	#pragma omp parallel
@@ -141,6 +141,7 @@ float CPU_parallel(int threads,int N){
 double CPU_parallel_dp(int threads,int N){
 	omp_set_dynamic(0);
 	omp_set_num_threads(threads);
+
 	double points_in_circle[threads];//= 0.0;
 	long long trials = N*THREADS*BLOCKS;
 	double x = 0.0,y = 0.0;
@@ -149,6 +150,7 @@ double CPU_parallel_dp(int threads,int N){
 	{
 		int tid = omp_get_thread_num();
 		int thre = threads;//omp_get_num_threads();
+		unsigned int seed = tid+1;
 		long	istart = (tid * trials)/thre;
 		long 	iend = ((tid+1)* trials)/thre;
 		points_in_circle[tid] = 0.0;
@@ -179,8 +181,12 @@ int main (int argc, char *argv[]) {
 	double host_dp[BLOCKS * THREADS];
 	double *dev_dp;
 	int N[4] = {1,256,1024,4096};
+	int precision = 1;
+				printf("Please choose 1 for single precision or 2 for double precision computation \n");
+				scanf ("%d", &precision);
 
 	for(int n=0;n<4;n++){
+		if(precision == 1){
 		if(n>0){
 		printf("=====================SINGLE PRECISION===============================\n");
 		printf("\n" );
@@ -230,6 +236,7 @@ int main (int argc, char *argv[]) {
 		printf("CPU parallel pi calculated in %f ms.With Thread count of %i\n",1000* (stop-start)/(float)CLOCKS_PER_SEC, threads);
 		printf("\n" );
 	}
+}else if(precision == 2){
 	if(n>0){
 	printf("=====================DOUBLE PRECISION===============================\n");
 	printf("\n" );
@@ -275,6 +282,10 @@ if(n>0){
 	printf("CPU parallel estimate of PI = %f [error of %f]\n", pi_cpu_par_dp, pi_cpu_par_dp - PI);
 	printf("CPU parallel pi calculated in %f ms.With Thread count of %i\n",1000* (stop-start)/(float)CLOCKS_PER_SEC, threads);
 	printf("\n" );
+}
+}
+else{
+	return 0;
 }
 }
 	return 0;

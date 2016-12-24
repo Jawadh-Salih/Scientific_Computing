@@ -9,6 +9,9 @@
 
 #define TILE_N 10
 
+long no_of_ops_serial=0,no_of_ops_serial_dp=0;
+long no_of_ops_parallel=0,no_of_ops_parallels_dp=0;
+long no_of_ops_cuda=0,no_of_ops_cuda_dp=0;
 float ** generate_matrix_sp(float **M, unsigned long N){
   M = (float **)malloc(sizeof(float *)*N);
   for(long i=0; i < N; i++) M[i] =(float *) malloc(sizeof(float) * N);
@@ -41,6 +44,7 @@ float** matrix_mul_sp(float **M1,float **M2, unsigned long N){
         C[i][j]=0.0;
         for(long k=0;k<N;k++){
           C[i][j] += M1[i][k]*M2[k][j];
+          no_of_ops_serial ++;
         }
     }
   }
@@ -58,6 +62,7 @@ double ** matrix_mul_dp(double **V1,double **V2, unsigned long N){
     for(long j=0;j<N;j++){
         for(long k=0;k<N;k++){
           C[i][j] += V1[i][k]*V2[k][j];
+          no_of_ops_serial_dp ++;
         }
     }
   }
@@ -76,6 +81,7 @@ __global__ void matrix_mul_sp_kernel(float *A_dev,float *B_dev,float * C_dev, un
     for(int k=0;k<N;k++){
         C_value += A_dev[row*N+k]*B_dev[k*N+col];
         C_dev[row*N+col] = C_value;
+        // no_of_ops_cuda ++;
     }
   }
 }
@@ -90,20 +96,59 @@ __global__ void matrix_mul_dp_kernel(double *A_dev,double *B_dev,double * C_dev,
     for(int k=0;k<N;k++){
         C_value += A_dev[row*N+k]*B_dev[k*N+col];
         C_dev[row*N+col] = C_value;
+        // no_of_ops_cuda_dp++;
     }
   }
 }
 int main(int argc,char *argv[]){
 
+  omp_lock_t write_lock;
+  omp_init_lock(&write_lock);
+  int precision;
+  int computation =0 ;
+  int verify = 0; //default no verification
+  int command;
+  // int flag = 0;
+  int threads =2;
+  while((command = getopt(argc,argv,"spcv842:")) != -1)
+    switch(command){
+      case 's':
+        computation = 0;
+        // flag = 1;
+        break;
+      case 'p':
+        computation = 1;
+        // flag = 1;
+        break;
+      case 'c':
+        computation = 2; // cuda
+        // flag = 1;
+        break;
+      case 'v':
+        verify = 1;
+        break;
+      case '8':
+        threads = 8;
+        break;
+      case '4':
+        threads = 4;
+        break;
+      case '2':
+        threads = 2;
+        break;
+
+      default:
+        abort();
+    }
   int N[3] = {600,1200,1800};
   float **Asp,**Bsp; // Single precision
   double **Adp,**Bdp; // double precision
 
-  int threads =2;
-  if(argc == 2)
-    threads = atoi(argv[1]);
 
-  // int select_precision = 0; //default to floating point.
+  // if(argc == 3)
+  //   threads = atoi(argv[2]);
+  //
+  // // int select_precision = 0; //default to floating point.
   // int  computation = 0; //
   // int verify =0;
   double time_serial_sp=0.0;
@@ -117,8 +162,8 @@ int main(int argc,char *argv[]){
       printf("====================Matrix Multiplication calculation===================\n");
       printf("========================================================================\n");
 
-      printf("Thread Count is %i\n", threads );
-
+      printf("Please choose 1 for single precision or 2 for double precision computation \n");
+      scanf ("%d", &precision);
   for(int n=0;n<3;n++){
     // For GPU
     size_t size_M;
@@ -130,12 +175,13 @@ int main(int argc,char *argv[]){
     srand(seed);
     clock_t start, stop;
 
-
+    if(precision == 1){
     printf("==============================Single Precision==========================\n");
 
     Asp = generate_matrix_sp(Asp,N[n]);
     Bsp = generate_matrix_sp(Bsp,N[n]);
 
+    if(computation == 0){
     //Start of CPU serial computation
     start  = clock();
 
@@ -145,6 +191,11 @@ int main(int argc,char *argv[]){
     //End of CPU serial computation.
     time_serial_sp = 1000.0 * (stop-start)/(double)CLOCKS_PER_SEC;
     printf("Time taken to execute CPU Serial program : %g ms \n", time_serial_sp );
+  }
+  else if(computation ==1){
+
+
+
 
     //Start of CPU parallel computation in OMP.
     float ** C_sp_par = (float **)malloc(sizeof(float *)*N[n]);
@@ -166,17 +217,38 @@ int main(int argc,char *argv[]){
           #pragma omp parallel for schedule(static) reduction(+:dot_product_sp)
           for(int k=0;k<N[n];k++){
             dot_product_sp += Asp[i][k]*Bsp[k][j];
+            omp_set_lock(&write_lock);
+            no_of_ops_parallel++;
+            omp_unset_lock(&write_lock);
           }
+
+
           C_sp_par[i][j] = dot_product_sp;
         }
       }
     }
+    omp_destroy_lock(&write_lock);
     stop = clock();
     // End of CPU parallel Computation
     time_parallel_sp = 1000.0* (stop-start)/(double)CLOCKS_PER_SEC;
     printf("Time taken to execute CPU Parallel program : %g ms\n", time_parallel_sp);
+    if(verify == 1){
+      // for(long i=0;i<N;i++){
+      //   for(long j=0;j<N;j++){
+      //     C_sp[i][j] = C_sp[i][j]-C_sp_par[i][j];
+      //   }
+      // }
+      float ** C_sp_tmp = matrix_mul_sp(Asp,Bsp,N[n]);
 
-
+      printf("# of Operations in Serial : %li\n",no_of_ops_serial );
+      printf("# of Operations in Parallel : %li\n",no_of_ops_parallel );
+      printf("If both the Numbers are equal, then the there are same amount of computation happend which are similar");
+      if(no_of_ops_serial == no_of_ops_parallel){
+        printf("Accuracy is Verified. Computations give the Same results\n");
+      }
+    }
+  }
+  else if(computation == 2){
 
     //Start of GPU computation.
 
@@ -215,53 +287,73 @@ int main(int argc,char *argv[]){
     time_cuda_sp = 1000.0*(stop-start)/(double)CLOCKS_PER_SEC;
     printf("Time taken to execute GPU Parallel program : %g ms\n", time_cuda_sp);
 
-
-
+  }
+  }
+  else if (precision == 2){
     printf("================================Double Precision========================\n");
     Adp = generate_matrix_dp(Adp,N[n]);
     Bdp = generate_matrix_dp(Bdp,N[n]);
 
-    start = clock();
-    double **C_dp =matrix_mul_dp(Adp,Bdp,N[n]);
-    stop = clock();
+    if(computation == 0){
+      start = clock();
+      double **C_dp =matrix_mul_dp(Adp,Bdp,N[n]);
+      stop = clock();
 
-    //End of CPU serial computation.
-    time_serial_dp = 1000.0 * (stop-start)/(double)CLOCKS_PER_SEC;
-    printf("Time taken to execute CPU Serial program : %g ms \n", time_serial_dp );
+      //End of CPU serial computation.
+      time_serial_dp = 1000.0 * (stop-start)/(double)CLOCKS_PER_SEC;
+      printf("Time taken to execute CPU Serial program : %g ms \n", time_serial_dp );
+    }
+    else if(computation == 1){
+      //Start of CPU parallel computation in OMP
+      double ** C_dp_par = (double **)malloc(sizeof(double *)*N[n]);
+      for(long i=0; i < N[n]; i++) C_dp_par[i] =(double *) malloc(sizeof(double) * N[n]);
 
-
-    //Start of CPU parallel computation in OMP
-    double ** C_dp_par = (double **)malloc(sizeof(double *)*N[n]);
-    for(long i=0; i < N[n]; i++) C_dp_par[i] =(double *) malloc(sizeof(double) * N[n]);
-
-    double dot_product_dp = 0.0;
-
-    start= clock();
-    omp_set_num_threads(threads);
-    #pragma omp parallel
-    {
-      int tid = omp_get_thread_num();
-      int	istart = (tid * N[n])/threads;
-      int 	iend = ((tid+1)* N[n])/threads;
-      for(int i=istart;i<iend;i++){
-        for(int j=0;j<N[n];j++){
-          C_dp_par[i][j] =0.0;
-          dot_product_dp=0.0;
-          #pragma omp parallel for schedule(static) reduction(+:dot_product_dp)
-          for(int k=0;k<N[n];k++){
-            dot_product_dp += Adp[i][k]*Bdp[k][j];
+      double dot_product_dp = 0.0;
+      omp_init_lock(&write_lock);
+      start= clock();
+      omp_set_num_threads(threads);
+      #pragma omp parallel
+      {
+        int tid = omp_get_thread_num();
+        int	istart = (tid * N[n])/threads;
+        int 	iend = ((tid+1)* N[n])/threads;
+        for(int i=istart;i<iend;i++){
+          for(int j=0;j<N[n];j++){
+            C_dp_par[i][j] =0.0;
+            dot_product_dp=0.0;
+            #pragma omp parallel for schedule(static) reduction(+:dot_product_dp)
+            for(int k=0;k<N[n];k++){
+              dot_product_dp += Adp[i][k]*Bdp[k][j];
+              omp_set_lock(&write_lock);
+              no_of_ops_parallels_dp++;
+              omp_unset_lock(&write_lock);
+            }
+            C_dp_par[i][j] = dot_product_dp;
           }
-          C_dp_par[i][j] = dot_product_dp;
+        }
+      }
+      stop = clock();
+      omp_destroy_lock(&write_lock);
+      // End of CPU parallel computation.
+      time_parallel_dp = 1000.0* (stop-start)/(double)CLOCKS_PER_SEC;
+      printf("Time taken to execute CPU Parallel program  : %g ms \n", time_parallel_dp);
+      if(verify == 1){
+        // for(long i=0;i<N;i++){
+        //   for(long j=0;j<N;j++){
+        //     C_sp[i][j] = C_sp[i][j]-C_sp_par[i][j];
+        //   }
+        // }
+        double ** C_dp_tmp = matrix_mul_sp(Asp,Bsp,N[n]);
+
+        printf("# of Operations in Serial : %li\n",no_of_ops_serial_dp );
+        printf("# of Operations in Parallel : %li\n",no_of_ops_parallels_dp );
+        printf("If both the Numbers are equal, then the there are same amount of computation happend which are similar");
+        if(no_of_ops_serial_dp == no_of_ops_parallels_dp){
+          printf("==========Verification Successful. Computations give the Same results=======\n");
         }
       }
     }
-    stop = clock();
-
-    // End of CPU parallel computation.
-    time_parallel_dp = 1000.0* (stop-start)/(double)CLOCKS_PER_SEC;
-    printf("Time taken to execute CPU Parallel program  : %g ms \n", time_parallel_dp);
-
-
+    else if(computation ==2){
     //Start of GPU computation in CUDA
     double *Cdp_host, *Cdp_dev;
     double *Adp_dev,*Bdp_dev; // double precision
@@ -294,7 +386,12 @@ int main(int argc,char *argv[]){
     time_cuda_dp = 1000.0*(stop-start)/(double)CLOCKS_PER_SEC;
 
     printf("Time taken to execute GPU Parallel program  : %g ms \n", time_cuda_dp);
-
+  }
+}
+  else{
+    printf("Returning from the programs\n" );
+    return 0;
+  }
   }
 
 }

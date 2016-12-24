@@ -48,11 +48,11 @@ __global__ void gpu_monte_carlo_dp(double *estimate, curandState *states) {
 }
 
 float host_monte_carlo(long trials) {
-	float x, y;
+	double x, y;
 	long points_in_circle;
 	for(long i = 0; i < trials; i++) {
-		x = rand() / (float) RAND_MAX;
-		y = rand() / (float) RAND_MAX;
+		x = rand() / (double) RAND_MAX;
+		y = rand() / (double) RAND_MAX;
 		points_in_circle += (x*x + y*y <= 1.0f);
 	}
 	return 4.0f * points_in_circle / trials;
@@ -101,7 +101,7 @@ double CPU_parallel_dp(int threads,int N){
 	omp_set_num_threads(threads);
 	double points_in_circle[threads];//= 0.0;
 	long long trials = N*THREADS*BLOCKS;
-	float x = 0.0,y = 0.0;
+	double x = 0.0,y = 0.0;
 
 	#pragma omp parallel
 	{
@@ -176,15 +176,18 @@ int main (int argc, char *argv[]) {
 	double *dev_dp;
 	curandState *devStates;
 	int N[4] = {1,256,1024,4096};
+	int precision = 1;
+	      printf("Please choose 1 for single precision or 2 for double precision computation \n");
+	      scanf ("%d", &precision);
 
 	for(int n=0;n<4;n++){
 
-
+		if(precision == 1){
 		if(n>0){
 		printf("=====================SINGLE PRECISION===============================\n");
 		printf("\n" );
 		printf("\n" );
-		printf("# of trials per thread = %d, # of blocks = %d, # of threads/block = %d.\n", N[n],BLOCKS, THREADS);
+		printf("# of trials per thread = %d, # of blocks = %d, # of threads/block = %d. # of Threads %d\n ", N[n],BLOCKS, THREADS,threads);
 		printf("\n" );
 	}
 		start = clock();
@@ -212,38 +215,20 @@ int main (int argc, char *argv[]) {
 		// PI calculated from CPU parallel computation
 		float pi_cpu_par  =0.0;
 		start = clock();
-		pi_cpu_par = CPU_parallel_dp(threads,N[n]);
+		pi_cpu_par = CPU_parallel(threads,N[n]);
 		stop = clock();
 		if(n>0){
 			printf("CPU parallel estimate of PI = %f [error of %f]\n", pi_cpu_par, pi_cpu_par - PI);
 			printf("CPU parallel pi calculated in %f ms.With Thread count of %i\n",1000* (stop-start)/(float)CLOCKS_PER_SEC, threads);
 			printf("\n" );
 		}
-		// PI calculated from CPU parallel computation
-		start = clock();
-		pi_cpu_par = CPU_parallel_dp(threads/2,N[n]);
-		stop = clock();
-		if(n>0){
-			printf("CPU parallel estimate of PI = %f [error of %f]\n", pi_cpu_par, pi_cpu_par - PI);
-			printf("CPU parallel pi calculated in %f ms.With Thread count of %i\n",1000* (stop-start)/(float)CLOCKS_PER_SEC, threads/2);
-			printf("\n" );
-		}
-		// PI calculated from CPU parallel computation
-		start = clock();
-		pi_cpu_par = CPU_parallel_dp(threads/4,N[n]);
-		stop = clock();
-		if(n>0){
-			printf("CPU parallel estimate of PI = %f [error of %f]\n", pi_cpu_par, pi_cpu_par - PI);
-			printf("CPU parallel pi calculated in %f ms.With Thread count of %i\n",1000* (stop-start)/(float)CLOCKS_PER_SEC, threads/4);
-			printf("\n" );
-		}
-
-
+}
+else if(precision == 2){
 if(n>0){
 		printf("=====================DOUBLE PRECISION===============================\n");
 		printf("\n" );
 		printf("\n" );
-		printf("# of trials per thread = %d, # of blocks = %d, # of threads/block = %d.\n", N[n],BLOCKS, THREADS);
+		printf("# of trials per thread = %d, # of blocks = %d, # of threads/block = %d. # of Threads %d\n", N[n],BLOCKS, THREADS,threads);
 		printf("\n" );
 	}
 		start = clock();
@@ -256,7 +241,7 @@ if(n>0){
 			printf("\n" );
 	}
 		start = clock();
-		double pi_cpu_dp = host_monte_carlo(BLOCKS * THREADS * N[n]);
+		double pi_cpu_dp = host_monte_carlo_dp(BLOCKS * THREADS * N[n]);
 		stop = clock();
 		if(n>0){
 			printf("CPU estimate of PI = %f [error of %f]\n", pi_cpu_dp, pi_cpu_dp - PI);
@@ -275,28 +260,10 @@ if(n>0){
 			printf("CPU parallel pi calculated in %f ms.With Thread count of %i\n",1000* (stop-start)/(double)CLOCKS_PER_SEC, threads);
 			printf("\n" );
 	}
-		// PI calculated from CPU parallel computation
-		start = clock();
-
-		pi_cpu_par_dp = CPU_parallel_dp(threads/2,N[n]);
-
-		stop = clock();
-		if(n>0){
-			printf("CPU parallel estimate of PI = %f [error of %f]\n", pi_cpu_par_dp, pi_cpu_par_dp - PI);
-			printf("CPU parallel pi calculated in %f ms.With Thread count of %i\n",1000* (stop-start)/(double)CLOCKS_PER_SEC, threads/2);
-			printf("\n" );
-	}
-	// PI calculated from CPU parallel computation
-		start = clock();
-
-		 pi_cpu_par_dp = CPU_parallel_dp(threads/4,N[n]);
-
-		stop = clock();
-		if(n>0){
-			printf("CPU parallel estimate of PI = %f [error of %f]\n", pi_cpu_par_dp, pi_cpu_par_dp - PI);
-			printf("CPU parallel pi calculated in %f ms.With Thread count of %i\n",1000* (stop-start)/(double)CLOCKS_PER_SEC, threads/4);
-			printf("\n");
-		}
+}
+else{
+	return 0;
+}
 	}
 	return 0;
 }

@@ -53,7 +53,7 @@ double vector_dot_dp(double *V1,double *V2, unsigned long N){
   return dot_product;
 }
 
-__global__ void vector_dot_sp_gpu(float *V1_d,float *V2_d, float* dot_p_d)const unsigned long N, int nthreads, int nblocks) {
+__global__ void vector_dot_sp_gpu(float *V1_d,float *V2_d, float* dot_p_d, unsigned long N, int nthreads, int nblocks) {
   
   int idx = blockIdx.x*blockDim.x+threadIdx.x;  // Sequential thread index across the blocks
    for (long i=idx; i< N; i+=nthreads*nblocks) {
@@ -166,7 +166,7 @@ int main(int argc, char * argv[]){
       cudaMemcpy(V2sp_dev, V2sp, size_V, cudaMemcpyHostToDevice);
 
       // Do calculation on device
-      vector_dot_sp_gpu <<< dimGrid,dimBlock>>> (V1sp_dev,V2sp_dev,dot_p_dev_sp) ,N[n]), NUM_THREAD, NUM_BLOCK); // call CUDA kernel
+      vector_dot_sp_gpu <<< dimGrid,dimBlock>>> (V1sp_dev,V2sp_dev,dot_p_dev_sp ,N[n]), NUM_THREAD, NUM_BLOCK); // call CUDA kernel
       // Retrieve result from device and store it in host array
       cudaMemcpy(dot_p_host_sp, dot_p_dev_sp, size, cudaMemcpyDeviceToHost);
 
